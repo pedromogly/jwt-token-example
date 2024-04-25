@@ -1,0 +1,177 @@
+//crie um projeto node
+//instale as bibliotecas express, mongoose, bcrypt, dotenv, jsonwebtoken
+//crie os arquivos .gitignore e .env
+//insira os arquivos .env e node_modules no gitignore
+//insira o login do mongoDB dentro das variaveis ENV (DB_USER, DB_PASS)
+//crie o arquivo app.js
+//crie um script de start para nodemon app.js
+//importe o express, mongoose, jwt, bcrypt e dotenv instanciando .config()
+//inicie o express() em app
+//inicie o middleare de conversao em json do express
+//armazene em consts os process.env do login e senha do DB
+//faça a connect do mongoose com as consts do process.env concatenada no link
+//finalize a connect do mongoose com uma promisse dentro dele abrindo o servidor na porta 7171
+//insira uma rota padrão publica '/' com status 200 e json emitindo 'conectado'
+//crie a pasta models e crie o arquivo User, que é um template da collections users
+//importe o mongoose no arquivo
+//crie uma const com letra maiscula inicial como User, e faça o mongoose model
+//o primeiro parametro da model é o nome [no singular] e o segundo parametro é a estrutura do documento
+//exporte o User
+//importe o User no app.js armazenando numa const User
+//crie uma rota de registro, o parametro da rota precisa ser req e res assincrono
+//crie os req.body dentro de uma variavel passando os nomes respectivamente const {nome1,nome2} = req.body
+//faça as validações de campos
+//primeiro valide se os campos estão vazios, e retorne com status(422) e json com msg de objeto
+//valide se as senhas conferem
+//faça a validação se o usuário já existe no banco de dados, utilize o findOne passando como parametro o objeto
+//armazene a validação numa variavel, caso o BD retorne o campo vazio, então só usar isso como condição no if
+//retorne o if com status 422 e json com mensagem
+//crie o hash da senha com bcrypt
+//primeiro crie a variavel de salt, para calcular os rounds do hash usando a função genSalt, tem que ser async
+//cria a variavel de hash, usando a função hash do bcrypt e passe o primeiro parametro como a senha, e segundo a salt
+//crie uma const que armazena um new User, e passe como objeto os campos do BD,
+//se os nomes dos req.body forem os mesmos das keys do BD, não é necessário atribuir valor (name: name), apenas chame
+//armazene a variavel do hash dentro de pass
+//faça um try catch para salvar os dados
+//faça a função save de modo assincrono na variavel que recebeu o new User
+//coloque tambem o status 201 com sucesso com json
+//crie o catch de erro com status 500, mas passe o erro no console log
+
+//crie o sistema de login
+//crie uma rota post de req e res assincrona, da o nome que tu quer
+//destrincha os campos de preenchimentos (login,senha) no req.body, armazenando em variaveis
+//faça a verificação dos campos vazios, nao esqueça do return e os status com json
+//verifica se o login existe com findOne ASSINCRONA, lembrando de armazenar numa variavel, pois ela vai ser usada de novo
+//faça a verificação com if, em caso de não encontrar o user, retorna status 404 com usuario nao existente
+//faça a verificação da senha, crie uma variavel de checagem que recebe a função compare do crypt ASSINCRONA
+//os parametros da função precisam ser o pass que o usuário digitou e o variavel.pass que recebeu o findOne da verificação do user
+//faça um if se a checagem é diferente, se for, retorne stats 422 e json com senha invalida
+//faça um try catch
+//crie uma variavel no documento .env com o nome de SECRET e coloque o valor de um monte de caracteres aleatórios
+//No try crie uma variavel secret que armazena o SECRET do arquivo .env
+//em seguida crie uma variavel chamada token que recebe o jwt e uma função sign que abre um objeto
+//esse jwt.sign tem dentro das chaves, a criação de uma key id que recebe user._id (que é a _id que vem la do bd)
+//do lado de fora dessa chaves, digite a variavel secret como parametro e fecha o parenteses da função sign
+//faça um res status 200 com json respondendo a autenticação concluida e passando o token (apenas para visualizar)
+
+//crie uma rota privada
+//primeiro crie ela publica, para testar o usuario caso tudo dê certo
+//crie a rota get com o params id, não esqueça que é assincrona
+//armazene a a requisição do params id numa variavel id
+//crie uma variavel user que recebe o valor da busca do banco de dados por meio do findById
+//o primeiro parametro do find é a id que vc quer, o proximo parametro subtrai algo que vc não queira trazer, no caso a senha
+//verifique se o user existe, pois se a id do req não bater com nenhum findById, a variavel fica nula,
+//retorne o if com stauts 404 e mensagem nao encontrada em json
+//caso contrario deixe com status 200 e com o json de user (pra visualizar as informações do usuário)
+
+//crie o middleware checkToken, que vai ser usado em todas as rotas que forem privadas
+
+
+
+
+---------------------------------------app.js--------------------------------------------------------
+const express = require('express')
+const mongoose = require('mongoose')
+const bcrypt = require('bcrypt')
+const jwt = require('jsonwebtoken')
+require('dotenv').config()
+const User = require('./models/User')
+
+const app = express()
+//middleware para consersão de json
+app.use(express.json())
+
+
+
+app.get('/', (req,res)=>{
+    res.status(200).json({msg: 'conectado'})
+})
+
+app.post('/auth/register', async(req,res)=>{
+    const {name,email,pass,confirmpass} = req.body
+
+    if(!name){
+        return res.status(422).json({msg: 'O campo nome não pode estar vazio'})
+    }
+    if(!email){
+        return res.status(422).json({msg: 'O campo email não pode estar vazio'})
+    }
+    if(!pass){
+        return res.status(422).json({msg: 'O campo password não pode estar vazio'})
+    }
+    if(!confirmpass){
+        return res.status(422).json({msg: 'O campo confirmpass não pode estar vazio'})
+    }
+    if(pass !== confirmpass){
+        return res.status(422).json({msg: 'Senhas não coincidem'})
+    }
+
+    //checar se usuario e email existe
+    const userExists = await User.findOne({name: name})
+    if(userExists){
+        return res.status(422).json({msg: 'Usuário já existente, insira outro'})
+    }
+
+    const emailExists = await User.findOne({email: email})
+    if(emailExists){
+        return res.status(422).json({msg: 'Email já existente, insira outro'})
+    }
+    
+
+    //create passHash
+    const salt = await bcrypt.genSalt(12)
+    const passHash = await bcrypt.hash(pass, salt)
+    
+    //criar usuario no DB
+    const user = new User({
+        name,
+        email,
+        pass: passHash,
+    })
+
+    try {
+        await user.save()
+        res.status(201).json({msg: 'Usuário cadastrado com sucesso'})
+    }catch(err){
+        console.log(err)
+        res.status(500).json({msg_err: 'Ocorreu um erro ao se registrar'})
+    }
+
+})
+
+//Login User
+
+app.post('/auth/user/', async (req, res)=>{
+    const {name, pass} = req.body
+
+    //validations
+    
+})
+
+const dbuser = process.env.DB_USER
+const dbpass = process.env.DB_PASS
+
+mongoose.connect(`mongodb+srv://${dbuser}:${dbpass}@cluster0.v7vmc8j.mongodb.net/Auths`).then(
+    console.log('Conectado Ao DB'),
+    app.listen(7171, ()=>{
+        console.log('Servidor ON')
+    })
+).catch((err)=>{
+    console.log(`Erro ao se conectar: ${err}`)
+})
+
+---------------------------------------------------models/User.js-------------------------------------------------
+const mongoose = require("mongoose");
+
+const User = mongoose.model('User', {
+    name: String,
+    email: String,
+    pass: String
+})
+
+module.exports = User
+
+
+
+
+
